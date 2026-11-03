@@ -1,0 +1,20 @@
+# Thư viện cài bằng npm install
+node_modules/
+
+# File đóng gói (dmg, zip, exe nặng >100MB) — đăng lên GitHub Releases thay vì commit
+dist/
+
+# Hệ điều hành / trình soạn thảo
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Nhật ký & file tạm
+*.log
+npm-debug.log*
+*.tmp
+.env
+.env.*

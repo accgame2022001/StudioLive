@@ -1,0 +1,110 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+
+const DEFAULTS = {
+  username: '',
+  port: 3000,
+  autoReconnect: true,
+  previewSound: true,       // nghe âm thanh overlay ngay trong app
+  maStyle: 'game',          // kiểu của Live Ma Online: game | cards
+  overlay: {
+    showChat: true,
+    showGifts: true,
+    showFollows: true,
+    showShares: true,
+    showJoins: false,
+    showLikeCounter: true,
+    showViewerCounter: true,
+    showTopGifter: true,
+    mode: 'game',               // game (Nhà Ma) | cards (thẻ bình luận) | chua (Đi Chùa)
+    chuaName: '',               // tên kênh: tiêu đề + cách giọng đọc tự xưng
+    chuaVoice: true,            // giọng đọc (chào, cảm ơn quà, chúc)
+    chuaGreet: true,            // chào người mới vào
+    chuaRate: 1,                // tốc độ đọc
+    chuaLikeGoal: 666,          // số tim để mưa hoa sen
+    chuaMusic: true,            // nhạc nền thiền (mp3)
+    chuaMusicVolume: 0.45,
+    roundEvery: 3,              // phút giữa các vòng TRỐN TÌM, 0 = tắt
+    bots: true,                 // ma NPC đi hù người xem
+    background: 'haunted',      // transparent | haunted
+    accent: '#a3e635',
+    chatDuration: 4.5,          // giây
+    maxCards: 6,                // số thẻ chat tối đa cùng lúc
+    bigGiftDiamonds: 30,        // quà >= số kim cương này: jumpscare + Bà Ma
+    sound: true,
+    volume: 0.7,
+    chatSound: false,
+    customGiftSound: '',        // đường dẫn file mp3/wav trên máy
+    customChatSound: '',
+    customJumpscare: '',        // ảnh/gif/video jumpscare tự chọn
+    customScareSound: '',       // tiếng khi bị hù (tuỳ chọn)
+    customAmbient: '',          // nhạc nền (tuỳ chọn)
+    ambient: true,              // nhạc nền rùng rợn
+    ambientPreset: 'drone',     // drone | wind | rain | church | heartbeat | musicbox | whispers | forest
+    ambientVolume: 0.5,
+    tutorialEvery: 2,           // phút giữa các lần hiện bảng CÁCH CHƠI, 0 = tắt
+    filterWords: '',            // các từ cần ẩn, ngăn cách bằng dấu phẩy
+    liveBoost: 15               // % tăng độ tươi màu để bù phần TikTok nén làm nhạt (0-40)
+  }
+};
+
+function merge(base, extra) {
+  const out = { ...base };
+  for (const [k, v] of Object.entries(extra || {})) {
+    if (!(k in base)) continue;
+    if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) {
+      out[k] = merge(base[k], v);
+    } else if (typeof v === typeof base[k]) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+class Settings {
+  constructor(dir) {
+    this.file = path.join(dir, 'settings.json');
+    this.data = merge(DEFAULTS, {});
+    try {
+      this.data = merge(DEFAULTS, JSON.parse(fs.readFileSync(this.file, 'utf8')));
+      if (this.data.overlay.mode === 'cards') this.data.overlay.mode = 'game'; // bản bán chỉ còn 2 cảnh
+    } catch { /* lần đầu chạy hoặc file hỏng -> dùng mặc định */ }
+  }
+
+  get() {
+    return structuredClone(this.data);
+  }
+
+  update(patch) {
+    this.data = merge(this.data, patch);
+    this.data.port = Math.min(65535, Math.max(1024, Math.round(this.data.port) || 3000));
+    const o = this.data.overlay;
+    o.volume = Math.min(1, Math.max(0, o.volume));
+    o.chatDuration = Math.min(20, Math.max(2, o.chatDuration));
+    o.maxCards = Math.min(20, Math.max(1, Math.round(o.maxCards)));
+    o.bigGiftDiamonds = Math.max(0, Math.round(o.bigGiftDiamonds));
+    o.roundEvery = Math.min(30, Math.max(0, Math.round(o.roundEvery)));
+    o.tutorialEvery = Math.min(30, Math.max(0, Math.round(o.tutorialEvery)));
+    o.chuaName = o.chuaName.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 40);
+    o.chuaRate = Math.min(1.3, Math.max(0.6, o.chuaRate));
+    o.chuaMusicVolume = Math.min(1, Math.max(0, o.chuaMusicVolume));
+    o.chuaLikeGoal = Math.min(100000, Math.max(10, Math.round(o.chuaLikeGoal)));
+    o.ambientVolume = Math.min(1, Math.max(0, o.ambientVolume));
+    o.liveBoost = Math.min(40, Math.max(0, Math.round(o.liveBoost)));
+    if (!['drone', 'wind', 'rain', 'church', 'heartbeat', 'musicbox', 'whispers', 'forest'].includes(o.ambientPreset)) o.ambientPreset = 'drone';
+    if (!['game', 'cards', 'chua'].includes(o.mode)) o.mode = 'game';
+    if (!['game', 'cards'].includes(this.data.maStyle)) this.data.maStyle = 'game';
+    if (o.mode !== 'chua') this.data.maStyle = o.mode;
+    if (!/^#[0-9a-f]{6}$/i.test(o.accent)) o.accent = DEFAULTS.overlay.accent;
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2));
+    } catch (e) {
+      console.error('[settings] Không lưu được:', e.message);
+    }
+    return this.get();
+  }
+}
+
+module.exports = { Settings, DEFAULTS };

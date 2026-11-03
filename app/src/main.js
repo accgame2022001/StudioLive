@@ -1,0 +1,327 @@
+'use strict';
+const path = require('path');
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, nativeTheme } = require('electron');
+const { Settings } = require('./settings');
+const { LiveService, friendlyError } = require('./live');
+const { OverlayServer } = require('./server');
+
+app.setName('StudioLive');
+// Cho phép phát âm thanh hiệu ứng mà không cần bấm vào trang trước
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+nativeTheme.themeSource = 'dark';
+
+let win = null;
+let settings;
+const live = new LiveService();
+let paused = false;
+async function connectLive(username) {
+  const s = settings.update({ username: String(username || '') });
+  try {
+    await live.start(s.username, { autoReconnect: s.autoReconnect });
+    return { ok: true };
+  } catch (e) {
+    const message = friendlyError(e);
+    live.setStatus('error', message);
+    return { ok: false, message };
+  }
+}
+
+const overlay = new OverlayServer({
+  getConfig: () => settings.get(),
+  getSnapshot: () => live.snapshot(),
+  getPaused: () => paused
+});
+
+let serverState = { running: false, port: 0, error: '', clients: 0 };
+let outWin = null;
+
+// Cửa sổ "màn hình phát live": chỉ có cảnh overlay, để TikTok LIVE Studio / OBS quay cửa sổ này
+function openOutputWindow() {
+  if (outWin && !outWin.isDestroyed()) {
+    outWin.show();
+    outWin.focus();
+    return;
+  }
+  outWin = new BrowserWindow({
+    width: 540,
+    height: 960,
+    minWidth: 270,
+    minHeight: 480,
+    title: 'StudioLive - Man hinh phat live',
+    backgroundColor: '#000000',
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false }
+  });
+  outWin.setAspectRatio(9 / 16);
+  outWin.on('page-title-updated', (e) => e.preventDefault());
+  outWin.loadURL(`http://127.0.0.1:${serverState.port}/?output`);
+  outWin.on('closed', () => {
+    outWin = null;
+    send('output:state', { open: false });
+  });
+  send('output:state', { open: true });
+}
+
+const send = (channel, payload) => {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+};
+
+// ---- Chuyển tiếp sự kiện live -> dashboard + overlay ----
+live.on('status', (s) => send('live:status', s));
+live.on('stats', (s) => {
+  send('live:stats', s);
+  overlay.broadcast('stats', s);
+});
+live.on('event', (e) => {
+  send('live:event', e);
+  overlay.broadcast('live', e);
+});
+overlay.onClients = (n) => {
+  serverState.clients = n;
+  send('server:state', serverState);
+};
+
+async function startServer(port) {
+  try {
+    await overlay.start(port);
+    serverState = { running: true, port, error: '', clients: 0 };
+  } catch (e) {
+    serverState = {
+      running: false, port, clients: 0,
+      error: e.code === 'EADDRINUSE' ? `Cổng ${port} đang bị ứng dụng khác dùng. Đổi cổng trong Cài đặt.` : e.message
+    };
+  }
+  send('server:state', serverState);
+  if (outWin && !outWin.isDestroyed() && serverState.running) outWin.loadURL(`http://127.0.0.1:${port}/?output`);
+  return serverState;
+}
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1360,
+    height: 860,
+    minWidth: 1100,
+    minHeight: 700,
+    backgroundColor: '#0b0d10',
+    title: 'StudioLive',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: process.platform === 'darwin' ? false : { color: '#0b0d10', symbolColor: '#9ca3af', height: 40 },
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  win.once('ready-to-show', () => { if (!process.env.STUDIO_SELFTEST) win.show(); });
+  if (process.env.STUDIO_SELFTEST) selfTest();
+
+  // Link ngoài mở bằng trình duyệt mặc định
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+
+}
+
+// ---- IPC ----
+ipcMain.handle('app:init', () => ({
+  settings: settings.get(),
+  server: serverState,
+  live: live.snapshot(),
+  paused,
+  platform: process.platform,
+  version: app.getVersion()
+}));
+
+ipcMain.handle('settings:update', async (_e, patch) => {
+  const before = settings.get();
+  const next = settings.update(patch || {});
+  overlay.broadcast('config', next.overlay);
+  if (next.overlay.mode !== before.overlay.mode) {
+    // đổi chế độ: mọi trang đang hiện cảnh (LIVE Studio, OBS, xem trước) tải lại để sang cảnh mới
+    overlay.broadcast('reload');
+  }
+  if (next.port !== before.port) await startServer(next.port);
+  return { settings: next, server: serverState };
+});
+
+ipcMain.handle('live:connect', (_e, username) => connectLive(username));
+
+ipcMain.handle('live:disconnect', async () => {
+  await live.stop();
+  return { ok: true };
+});
+
+ipcMain.handle('overlay:test', (_e, type) => {
+  if (['round', 'thunder', 'jumpscare', 'peek', 'howto'].includes(type)) {
+    overlay.broadcast('game', type);
+    return true;
+  }
+  const demo = demoEvent(type);
+  if (demo) {
+    overlay.broadcast('live', demo);
+    send('live:event', { ...demo, test: true });
+  }
+  return true;
+});
+
+ipcMain.handle('overlay:pause', (_e, p) => {
+  paused = typeof p === 'boolean' ? p : !paused;
+  overlay.broadcast('pause', paused);
+  send('pause:state', paused);
+  return paused;
+});
+
+// Lệnh điều khiển cảnh chùa: đọc ngay, thỉnh chuông, gõ mõ, nhắc chia sẻ, mưa hoa sen, đặt lại điểm
+ipcMain.handle('chua:command', (_e, c) => {
+  const actions = ['speak', 'bell', 'mo', 'share', 'rain', 'reset', 'testLikes'];
+  if (!c || !actions.includes(c.action)) return false;
+  overlay.broadcast('chua', { action: c.action, text: typeof c.text === 'string' ? c.text.slice(0, 400) : undefined, n: Number(c.n) || undefined });
+  return true;
+});
+
+ipcMain.handle('overlay:reload', () => {
+  overlay.broadcast('reload');
+  return true;
+});
+
+ipcMain.handle('server:restart', () => startServer(settings.get().port));
+
+ipcMain.handle('dialog:pickSound', async (_e, kind) => {
+  const media = kind === 'media';
+  const r = await dialog.showOpenDialog(win, {
+    title: media ? 'Chọn ảnh / video jumpscare' : 'Chọn file âm thanh',
+    properties: ['openFile'],
+    filters: media
+      ? [{ name: 'Ảnh hoặc video', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov'] }]
+      : [{ name: 'Âm thanh', extensions: ['mp3', 'wav', 'ogg', 'm4a'] }]
+  });
+  return r.canceled ? '' : r.filePaths[0];
+});
+
+ipcMain.handle('output:open', () => {
+  openOutputWindow();
+  return true;
+});
+
+ipcMain.handle('tiktok:login', () => {
+  require('./direct').openLoginWindow(win);
+  return true;
+});
+
+ipcMain.handle('tiktok:logout', async () => {
+  await require('./direct').logoutTikTok();
+  return true;
+});
+
+ipcMain.handle('util:copy', (_e, text) => {
+  clipboard.writeText(String(text));
+  return true;
+});
+
+ipcMain.handle('util:openExternal', (_e, url) => {
+  if (/^https?:\/\//.test(url)) shell.openExternal(url);
+  return true;
+});
+
+// ---- Dữ liệu thử nghiệm ----
+const DEMO_NAMES = ['Hồn Ma Áo Trắng', 'Bé Ma Lém Lỉnh', 'Thầy Pháp Tập Sự', 'Cô Hồn Dạ Khúc', 'Quỷ Nhỏ 2k7', 'Ma Da Sông Hàn'];
+const DEMO_CHATS = ['Ghê quá streamer ơi 😱', 'Sau lưng anh có gì kìa!!!', 'Tắt đèn đi chơi mới vui', 'Ai đang xem một mình giơ tay 🙋', 'Nghe tiếng chuông rợn người', 'Cho em xin lá bùa với'];
+const DEMO_GIFTS = [
+  { giftName: 'Hoa Hồng', diamonds: 1, repeatCount: 5 },
+  { giftName: 'Kẹo Bông', diamonds: 5, repeatCount: 1 },
+  { giftName: 'Mũ Phù Thuỷ', diamonds: 99, repeatCount: 1 },
+  { giftName: 'Lâu Đài Ma', diamonds: 299, repeatCount: 2 }
+];
+const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function demoEvent(type) {
+  const nickname = rand(DEMO_NAMES);
+  const user = { id: 'demo-' + nickname, uniqueId: 'demo' + DEMO_NAMES.indexOf(nickname), nickname, avatar: '' };
+  const ts = Date.now();
+  switch (type) {
+    case 'chat': return { type: 'chat', user, text: rand(DEMO_CHATS), ts };
+    case 'scare': return { type: 'chat', user, text: 'hù', ts };
+    case 'adidaphat': return { type: 'chat', user, text: 'adidaphat', ts };
+    case 'wish': return { type: 'chat', user, text: rand(['Cầu cho con thi đỗ đại học', 'Cầu sức khỏe cho mẹ', 'Mong sớm gặp người thương', 'Cầu bình an cho gia đình']), ts };
+    case 'hide': return { type: 'chat', user, text: 'trốn', ts };
+    case 'seek': return { type: 'chat', user, text: 'tìm', ts };
+    case 'freeze': return { type: 'chat', user, text: 'bùa', ts };
+    case 'summon': return { type: 'chat', user, text: 'gọi hồn', ts };
+    case 'blackout': return { type: 'chat', user, text: 'tắt đèn', ts };
+    case 'dance': return { type: 'chat', user, text: 'nhảy', ts };
+    case 'laugh': return { type: 'chat', user, text: 'cười', ts };
+    case 'cry': return { type: 'chat', user, text: 'khóc', ts };
+    case 'hug': return { type: 'chat', user, text: 'ôm', ts };
+    case 'gift': {
+      const g = rand(DEMO_GIFTS);
+      return { type: 'gift', user, ...g, total: g.diamonds * g.repeatCount, giftImage: '', ts };
+    }
+    case 'bigGift': {
+      const g = DEMO_GIFTS[3];
+      return { type: 'gift', user, ...g, total: g.diamonds * g.repeatCount, giftImage: '', ts };
+    }
+    case 'follow': return { type: 'follow', user, ts };
+    case 'share': return { type: 'share', user, ts };
+    case 'join': return { type: 'join', user, ts };
+    default: return null;
+  }
+}
+
+// ---- Tự kiểm tra (không hiện cửa sổ): STUDIO_SELFTEST=<file kết quả> ----
+function selfTest() {
+  const fs = require('fs');
+  win.webContents.once('did-finish-load', async () => {
+    const r = { server: serverState.running, port: serverState.port };
+    try {
+      const h = await fetch(`http://127.0.0.1:${serverState.port}/health`).then((x) => x.json());
+      r.health = h.ok === true;
+      const html = await fetch(`http://127.0.0.1:${serverState.port}/`).then((x) => x.text());
+      r.overlay = html.includes('temple.js') && html.includes('game.js');
+      const img = await fetch(`http://127.0.0.1:${serverState.port}/chua-assets/hall.jpg`);
+      r.chuaAssets = img.ok;
+      await new Promise((ok) => setTimeout(ok, 1500));
+      r.ui = await win.webContents.executeJavaScript("!!document.querySelector('#view-dashboard') && document.querySelector('#srv-sub').textContent");
+      r.decoder = typeof require('tiktok-live-connector').deserializeWebSocketMessage === 'function';
+    } catch (e) {
+      r.error = String(e.message || e);
+    }
+    fs.writeFileSync(process.env.STUDIO_SELFTEST, JSON.stringify(r));
+    app.quit();
+  });
+}
+
+// ---- Vòng đời ứng dụng ----
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+
+  app.whenReady().then(async () => {
+    settings = new Settings(app.getPath('userData'));
+    await startServer(settings.get().port);
+    createWindow();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('before-quit', () => {
+    live.stop(true);
+    overlay.stop();
+  });
+}
