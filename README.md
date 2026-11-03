@@ -114,7 +114,9 @@ Chào mừng mọi đóng góp: fork repo → tạo nhánh → commit → mở P
 ## Tác giả
 
 **Tanthuan031** — GitHub: [@tanthuan031](https://github.com/tanthuan031)
-Website: https://thuantech.com
+# Website: https://thuantech.com
+# Facebook: https://www.facebook.com/thuanht31
+# Tiktok: https://www.tiktok.com/@rv.dev
 
 ## ☕ Mời tác giả ly cà phê
 
