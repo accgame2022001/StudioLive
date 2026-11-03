@@ -115,8 +115,12 @@ Contributions are welcome: fork the repo → create a branch → commit → open
 
 ## Author
 
-**Tanthuan031** — GitHub: [@tanthuan031](https://github.com/tanthuan031)
-Website: https://thuantech.com
+** Tanthuan031 **
+### GitHub: [@tanthuan031](https://github.com/tanthuan031)
+### Website: https://thuantech.com
+### Facebook: https://www.facebook.com/thuanht31
+### Tiktok: https://www.tiktok.com/@rv.dev
+
 ## ☕ Buy me a coffee
 
 If StudioLive is useful to you, you can buy me a coffee to keep the project going. Entirely optional — the app stays free for everyone. Thank you! 💚
