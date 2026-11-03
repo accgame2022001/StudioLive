@@ -24,9 +24,17 @@
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => {
     $$('.nav-item').forEach((x) => x.classList.toggle('active', x === b));
     $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + b.dataset.view));
-    if (b.dataset.view === 'ma' || b.dataset.view === 'chua') switchScene(b.dataset.view);
+    if (['ma', 'chua', 'rap'].includes(b.dataset.view)) switchScene(b.dataset.view);
     setPreviewSrc(false);
   }));
+
+  // Cột cài đặt của tab cảnh: bọc thêm 1 lớp để chia 2 cột bên trong và cuộn dọc
+  $$('.feature-controls').forEach((fc) => {
+    const inner = document.createElement('div');
+    inner.className = 'fc-inner';
+    while (fc.firstChild) inner.appendChild(fc.firstChild);
+    fc.appendChild(inner);
+  });
 
   // ---------- Kết nối ----------
   const STATUS = {
@@ -215,7 +223,7 @@
     set('golive', live);
     set('connect', live);
     const sc = $('#qs-scene');
-    if (sc) sc.textContent = mode === 'chua' ? 'Đang chọn: 🪷 Đi Chùa Online' : 'Đang chọn: 👻 Live Ma Online';
+    if (sc) sc.textContent = mode === 'chua' ? 'Đang chọn: 🪷 Đi Chùa Online' : mode === 'rap' ? 'Đang chọn: 🎬 Rạp Phim Online' : 'Đang chọn: 👻 Live Ma Online';
   }
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => $(`.nav-item[data-view=${b.dataset.goto}]`).click()));
   $('#qs-copy').addEventListener('click', async () => {
@@ -226,14 +234,14 @@
   // Chấm LIVE cạnh tab đang chạy trên live
   function renderChuaNav(mode) {
     renderQuick();
-    const live = mode === 'chua' ? 'chua' : 'ma';
+    const live = mode === 'chua' ? 'chua' : mode === 'rap' ? 'rap' : 'ma';
     $$('[data-live-for]').forEach((d) => d.classList.toggle('on', d.dataset.liveFor === live));
     $$('[data-open-scene]').forEach((b) => {
       const on = b.dataset.openScene === live;
       b.classList.toggle('live', on);
       b.querySelector('small').textContent = on
         ? '● Đang phát cảnh này — bấm để mở màn hình phát'
-        : (live === 'chua' ? 'Chuyển live sang Nhà Ma + mở màn hình phát' : 'Chuyển live sang chánh điện + mở màn hình phát');
+        : ({ ma: 'Chuyển live sang Nhà Ma + mở màn hình phát', chua: 'Chuyển live sang chánh điện + mở màn hình phát', rap: 'Chuyển live sang rạp phim + mở màn hình phát' })[b.dataset.openScene];
     });
   }
   // Nút riêng cho từng cảnh: chuyển cảnh trên live rồi mở màn hình phát
@@ -245,12 +253,12 @@
   // Mở tab nào thì cảnh đó chạy trên live
   function switchScene(view) {
     if (!settings) return;
-    const want = view === 'chua' ? 'chua' : 'game';
+    const want = view === 'chua' ? 'chua' : view === 'rap' ? 'rap' : 'game';
     if (settings.overlay.mode === want) return;
     settings.overlay.mode = want;
     renderSettings();
     save({ overlay: { mode: want } }, true);
-    notify(view === 'chua' ? '🪷 Live đang chạy: Đi Chùa Online' : '👻 Live đang chạy: Live Ma Online');
+    notify(view === 'chua' ? '🪷 Live đang chạy: Đi Chùa Online' : view === 'rap' ? '🎬 Live đang chạy: Rạp Phim Online' : '👻 Live đang chạy: Live Ma Online');
   }
   $('#chua-name-save').addEventListener('click', () => {
     const name = $('#chua-name').value.trim();
@@ -268,6 +276,104 @@
     const a = b.dataset.chua;
     api.chua(a, a === 'testLikes' ? { n: 100 } : {});
   }));
+
+  // ---------- Rạp Phim Online ----------
+  const ytIdOf = (u) => (String(u).match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/i) || [])[1] || '';
+  const movieName = (p) => {
+    if (ytIdOf(p)) return '▶ YouTube · ' + ytIdOf(p);
+    if (/^https?:\/\//i.test(p)) { try { const u = new URL(p); return '🔗 ' + u.hostname + decodeURIComponent(u.pathname).slice(0, 60); } catch { return '🔗 ' + p; } }
+    return String(p || '').split(/[\\/]/).pop();
+  };
+  function renderMovies() {
+    const list = settings.overlay.rapVideos || [];
+    const cur = settings.overlay.rapIndex || 0;
+    $('#rap-empty').hidden = list.length > 0;
+    $('#rap-list').replaceChildren(...list.map((p, i) => {
+      const li = document.createElement('li');
+      li.className = i === cur ? 'on' : '';
+      li.title = 'Bấm để chiếu phim này — ' + p;
+      const n = document.createElement('span'); n.className = 'mv-n'; n.textContent = i === cur ? '▶' : i + 1;
+      const nm = document.createElement('span'); nm.className = 'mv-name'; nm.textContent = movieName(p);
+      const del = document.createElement('button'); del.className = 'mv-del'; del.textContent = '✕'; del.title = 'Xoá khỏi danh sách';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = list.filter((_, k) => k !== i);
+        const idx = Math.min(cur > i ? cur - 1 : cur, Math.max(0, next.length - 1));
+        settings.overlay.rapVideos = next; settings.overlay.rapIndex = idx;
+        renderMovies();
+        save({ overlay: { rapVideos: next, rapIndex: idx } }, true);
+      });
+      li.addEventListener('click', () => {
+        settings.overlay.rapIndex = i;
+        renderMovies();
+        api.rap('index', { n: i });
+      });
+      li.append(n, nm, del);
+      return li;
+    }));
+  }
+  $$('#rap-theme button').forEach((b) => b.addEventListener('click', () => {
+    settings.overlay.rapTheme = b.dataset.theme;
+    renderSettings();
+    save({ overlay: { rapTheme: b.dataset.theme } }, true);
+  }));
+  $('#rap-link-add').addEventListener('click', () => {
+    const link = $('#rap-link').value.trim();
+    if (!/^https?:\/\//i.test(link)) return notify('Link phải bắt đầu bằng http:// hoặc https://', 'err');
+    if (!ytIdOf(link) && !/\.(mp4|webm|m4v|mov)(\?|#|$)/i.test(link)) {
+      notify('Chỉ phát được link YouTube hoặc link trực tiếp tới file video (.mp4, .webm). Link trang web khác có thể không chạy.', 'err');
+    }
+    const next = [...(settings.overlay.rapVideos || []), link].slice(0, 100);
+    const idx = next.length - 1;
+    settings.overlay.rapVideos = next;
+    settings.overlay.rapIndex = idx;
+    $('#rap-link').value = '';
+    renderMovies();
+    // lưu danh sách rồi chiếu ngay link vừa thêm
+    api.updateSettings({ overlay: { rapVideos: next, rapIndex: idx } }).then(() => setTimeout(() => api.rap('index', { n: idx }), 300));
+    notify('Đã thêm link — đang chiếu');
+  });
+  $('#rap-link').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#rap-link-add').click(); });
+  $('#rap-lights').addEventListener('click', () => {
+    settings.overlay.rapLightsOff = !settings.overlay.rapLightsOff;
+    renderSettings();
+    save({ overlay: { rapLightsOff: settings.overlay.rapLightsOff } }, true);
+  });
+  $('#rap-add').addEventListener('click', async () => {
+    const files = await api.pickVideos();
+    if (!files.length) return;
+    const before = (settings.overlay.rapVideos || []).length;
+    const next = [...(settings.overlay.rapVideos || []), ...files].slice(0, 100);
+    settings.overlay.rapVideos = next;
+    settings.overlay.rapIndex = before;
+    renderMovies();
+    api.updateSettings({ overlay: { rapVideos: next, rapIndex: before } }).then(() => setTimeout(() => api.rap('index', { n: before }), 300));
+    notify(`Đã thêm ${files.length} phim`);
+  });
+  $$('[data-rap]').forEach((b) => b.addEventListener('click', () => {
+    const a = b.dataset.rap;
+    if (a === 'next' || a === 'prev') {
+      const n = (settings.overlay.rapVideos || []).length;
+      if (n) {
+        settings.overlay.rapIndex = ((settings.overlay.rapIndex || 0) + (a === 'next' ? 1 : -1) + n) % n;
+        renderMovies();
+        save({ overlay: { rapIndex: settings.overlay.rapIndex } });
+      }
+    }
+    api.rap(a, a === 'testLikes' ? { n: 100 } : {});
+  }));
+  $('#rap-name-save').addEventListener('click', () => {
+    const name = $('#rap-name').value.trim();
+    settings.overlay.rapName = name;
+    save({ overlay: { rapName: name } }, true);
+    notify(name ? `Đã lưu tên rạp: ${name}` : 'Đã xoá tên rạp (dùng tên mặc định)');
+  });
+  $('#rap-speak-btn').addEventListener('click', () => {
+    const text = $('#rap-speak').value.trim();
+    if (!text) return notify('Nhập câu cần đọc trước', 'err');
+    api.rap('speak', { text });
+    notify('Đã gửi câu cần đọc lên live');
+  });
 
   // ---------- Tạm dừng / chạy tiếp ----------
   function renderPause(p) {
@@ -347,6 +453,18 @@
   }));
 
   // Khung xem cảnh: chỉ khung ở tab đang mở được chạy, tab khác tắt hẳn cho nhẹ máy
+  // Tự hồi phục khung xem: không nhận được nhịp "còn sống" 4 giây -> tải lại khung
+  let lastAlive = Date.now();
+  window.addEventListener('message', (e) => { if (e.data && e.data.studioAlive) lastAlive = Date.now(); });
+  setInterval(() => {
+    const vis = $$('.live-preview').some((f) => f.dataset.src && $('#view-' + f.dataset.for).classList.contains('active'));
+    if (vis && !document.hidden && Date.now() - lastAlive > 4000) { lastAlive = Date.now(); setPreviewSrc(true); }
+  }, 2000);
+  // cửa sổ hiện lại sau khi thu nhỏ / máy ngủ dậy: tải lại khung cho chắc
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastAlive = Date.now(); setPreviewSrc(true); } });
+  api.onPreviewReload(() => { lastAlive = Date.now(); setPreviewSrc(true); });
+  $$('[data-reload-preview]').forEach((b) => b.addEventListener('click', () => { setPreviewSrc(true); notify('Đã tải lại khung xem'); }));
+
   function setPreviewSrc(force) {
     if (!server.running) return;
     const mute = (settings && !settings.previewSound) || outputOpen;
@@ -416,6 +534,14 @@
     $('#v-volume').textContent = Math.round(o.volume * 100) + '%';
     $('#v-roundEvery').textContent = o.roundEvery ? o.roundEvery + ' phút' : 'Tắt';
     $('#v-chuaRate').textContent = '×' + Number(o.chuaRate).toFixed(2);
+    $('#v-rapVolume').textContent = Math.round(o.rapVolume * 100) + '%';
+    $('#v-rapRate').textContent = '×' + Number(o.rapRate).toFixed(2);
+    $('#v-rapIdleMin').textContent = o.rapIdleMin ? o.rapIdleMin + ' phút' : 'Không bao giờ';
+    if (document.activeElement !== $('#rap-name')) $('#rap-name').value = o.rapName || '';
+    renderMovies();
+    $$('#rap-theme button').forEach((b) => b.classList.toggle('active', b.dataset.theme === (o.rapTheme || 'classic')));
+    $('#rap-lights').textContent = o.rapLightsOff ? '💡 Bật đèn phòng' : '🌑 Tắt đèn phòng';
+    $('#rap-lights').classList.toggle('on', !!o.rapLightsOff);
     $('#v-liveBoost').textContent = o.liveBoost ? '+' + o.liveBoost + '%' : 'Tắt';
     $('#v-chuaMusicVolume').textContent = Math.round(o.chuaMusicVolume * 100) + '%';
     if (document.activeElement !== $('#chua-name')) $('#chua-name').value = o.chuaName || '';

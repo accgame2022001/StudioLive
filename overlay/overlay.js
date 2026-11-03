@@ -14,7 +14,7 @@
     background: 'transparent', accent: '#a3e635', chatDuration: 4.5, maxCards: 6,
     bigGiftDiamonds: 30, sound: true, volume: 0.7, chatSound: false,
     customGiftSound: '', customChatSound: '', customJumpscare: '', filterWords: '',
-    mode: 'game', roundEvery: 3, bots: true, chuaName: '', chuaVoice: true, chuaRate: 1, chuaLikeGoal: 666, chuaMusic: true, chuaMusicVolume: 0.45, chuaGreet: true, ambient: true, ambientVolume: 0.5, ambientPreset: 'drone',
+    mode: 'game', roundEvery: 3, bots: true, chuaName: '', chuaVoice: true, chuaRate: 1, chuaLikeGoal: 666, chuaMusic: true, chuaMusicVolume: 0.45, chuaGreet: true, rapName: '', rapVoice: true, rapGreet: true, rapRate: 1, rapVolume: 0.8, rapLikeGoal: 500, rapVideos: [], rapIndex: 0, rapLoop: true, rapTheme: 'classic', rapLightsOff: false, rapIdleMin: 0, ambient: true, ambientVolume: 0.5, ambientPreset: 'drone',
     customScareSound: '', customAmbient: '', tutorialEvery: 2
   };
 
@@ -466,11 +466,13 @@
     document.body.classList.toggle('haunted', cfg.background === 'haunted');
     document.body.classList.toggle('game', cfg.mode === 'game');
     document.body.classList.toggle('mode-chua', cfg.mode === 'chua');
+    document.body.classList.toggle('mode-rap', cfg.mode === 'rap');
     // Bù màu: TikTok nén video làm màu nhạt và tối đi, tăng nhẹ độ tươi / tương phản / sáng
     const b = Math.max(0, Math.min(40, Number(cfg.liveBoost ?? 15))) / 100;
     stage.style.filter = b ? `saturate(${(1 + b).toFixed(3)}) contrast(${(1 + b * 0.3).toFixed(3)}) brightness(${(1 + b * 0.25).toFixed(3)})` : '';
     window.HauntGame.setConfig(cfg);
     window.TempleScene.setConfig(cfg);
+    window.RapScene.setConfig(cfg);
     window.HauntAudio.update();
     syncAmbientFile();
     ensureFx();
@@ -519,6 +521,7 @@
     document.body.classList.toggle('paused', p);
     window.HauntGame.setPaused(p);
     window.TempleScene.setPaused(p);
+    window.RapScene.setPaused(p);
     window.HauntAudio.setPaused(p);
     if (p) ambientEl.pause(); else syncAmbientFile();
     ensureFx();
@@ -556,19 +559,49 @@
     }
   });
 
+  // ---------- Rạp Phim Online ----------
+  window.RapScene.init({
+    canvas: $('rap'),
+    sfx: { play: (n, a) => window.HauntAudio.play(n, a), muted: () => !cfg.sound || isPreview },
+    ui: {
+      root: $('rap-ui'),
+      title: document.querySelector('.r-title'),
+      now: document.querySelector('.r-now'),
+      likeFill: document.querySelector('.r-like-fill'),
+      likeText: document.querySelector('.r-like-text'),
+      board: document.querySelector('.rb-list'),
+      boardEmpty: document.querySelector('.rb-empty'),
+      plate: document.querySelector('.r-plate'),
+      caption: document.querySelector('.r-caption')
+    }
+  });
+
   // ---------- Kết nối tới app StudioLive ----------
   const socket = io({ reconnectionDelayMax: 3000 });
   socket.on('connect', () => $('offline').classList.add('hidden'));
   socket.on('disconnect', () => $('offline').classList.remove('hidden'));
   socket.on('config', applyConfig);
-  socket.on('stats', (st) => { updateStats(st); window.HauntGame.onStats(st); window.TempleScene.onStats(st); });
+  socket.on('stats', (st) => { updateStats(st); window.HauntGame.onStats(st); window.TempleScene.onStats(st); window.RapScene.onStats(st); });
   socket.on('game', (a) => window.HauntGame.command(a));
   socket.on('reload', () => location.reload());
+
+  // Khung xem trong app: báo "còn sống" mỗi giây để app tự tải lại nếu khung bị treo/đen
+  if (window.parent !== window) {
+    setInterval(() => { try { window.parent.postMessage({ studioAlive: true }, '*'); } catch { /* bỏ qua */ } }, 1000);
+  }
+  // Card đồ hoạ mất ngữ cảnh (thu nhỏ cửa sổ, đổi màn hình, máy ngủ dậy…) -> canvas đen: tải lại trang
+  document.querySelectorAll('canvas').forEach((c) => c.addEventListener('contextlost', () => setTimeout(() => location.reload(), 300)));
   socket.on('pause', (p) => setPausedAll(!!p));
   socket.on('chua', (c) => window.TempleScene.command(c));
+  socket.on('rap', (c) => window.RapScene.command(c));
 
   socket.on('live', (ev) => {
     if (!ev || !ev.type || paused) return; // đang tạm dừng: bỏ qua sự kiện
+    if (cfg.mode === 'rap') {
+      if (ev.type === 'chat' && blocked(ev.text)) return;
+      window.RapScene.onEvent(ev);
+      return;
+    }
     if (cfg.mode === 'chua') {
       if (ev.type === 'chat' && blocked(ev.text)) return;
       window.TempleScene.onEvent(ev);

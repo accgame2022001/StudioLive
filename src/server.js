@@ -8,7 +8,7 @@ const { Server } = require('socket.io');
 const MEDIA_TYPES = {
   '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
-  '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'
+  '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'
 };
 
 /*
@@ -58,6 +58,15 @@ class OverlayServer {
       const type = MEDIA_TYPES[path.extname(file).toLowerCase()];
       if (!file || !type || !fs.existsSync(file)) return res.sendStatus(404);
       // sendFile hỗ trợ Range -> video tua/phát được trong OBS
+      res.sendFile(file, { headers: { 'Content-Type': type, 'Cache-Control': 'no-store' } });
+    });
+
+    // Phim cho cảnh Rạp Phim (file trên máy, hỗ trợ tua nhờ sendFile/Range)
+    app.get('/rap/:i', (req, res) => {
+      const list = this.getConfig().overlay.rapVideos || [];
+      const file = list[Number(req.params.i)] || '';
+      const type = MEDIA_TYPES[path.extname(file).toLowerCase()];
+      if (!file || !type || !type.startsWith('video/') || !fs.existsSync(file)) return res.sendStatus(404);
       res.sendFile(file, { headers: { 'Content-Type': type, 'Cache-Control': 'no-store' } });
     });
 

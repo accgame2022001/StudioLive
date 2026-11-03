@@ -420,3 +420,53 @@ details.adv .adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px
 @media (max-width: 1250px) { .feature-layout .preview-actions { max-width: 360px; } }
 .feature-controls > .col { display: contents; }
 .feature-controls .panel { break-inside: avoid; margin-bottom: 16px; display: block; width: 100%; }
+
+/* ===== Rạp phim ===== */
+.scene-row { grid-template-columns: repeat(3, 1fr); }
+.btn.scene-btn.rap:hover { border-color: #e11d48; }
+.btn.scene-btn.rap.live { background: linear-gradient(90deg, #4c0519, #1e1b4b); border-color: #fb7185; box-shadow: 0 6px 22px rgba(225, 29, 72, .35); }
+.movie-list { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+.movie-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #11151a; border: 1px solid transparent; cursor: pointer; }
+.movie-list li:hover { border-color: #3a4452; }
+.movie-list li.on { border-color: rgba(251, 113, 133, .6); background: rgba(225, 29, 72, .1); }
+.movie-list .mv-n { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: #1f252d; color: var(--muted); flex: none; }
+.movie-list li.on .mv-n { background: #e11d48; color: #fff; }
+.movie-list .mv-name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.movie-list .mv-del { color: var(--muted); padding: 2px 6px; border-radius: 6px; }
+.movie-list .mv-del:hover { color: #fda4af; background: rgba(244, 63, 94, .15); }
+.movie-empty { color: var(--muted); font-size: 12.5px; padding: 10px; border: 1px dashed var(--line-2); border-radius: 10px; margin-bottom: 10px; }
+.movie-empty b { color: var(--text); }
+.movie-ctrl { display: flex; flex-wrap: wrap; gap: 6px; }
+.warn-hint { color: #fda4af; }
+
+/* ===== Tab cảnh: khung xem cố định bên trái, chỉ cột cài đặt cuộn ===== */
+main:has(.view.scene-view.active) { overflow: hidden; padding-bottom: 0; }
+.view.scene-view.active { display: flex; flex-direction: column; height: 100%; }
+.view.scene-view .page-head { flex: none; }
+.view.scene-view .feature-layout { flex: 1; min-height: 0; align-items: stretch; }
+.view.scene-view .feature-layout > .preview-wrap { position: static; overflow: hidden; }
+.view.scene-view .feature-frame { height: min(720px, calc(100vh - 300px)); width: auto; aspect-ratio: 9 / 16; }
+.view.scene-view .feature-controls { height: 100%; overflow-y: auto; padding: 0 6px 24px 0; scrollbar-gutter: stable; }
+.view.scene-view .feature-controls::-webkit-scrollbar { width: 8px; }
+.view.scene-view .feature-controls::-webkit-scrollbar-thumb { background: #232a33; border-radius: 8px; }
+.view.scene-view .preview-actions, .view.scene-view .preview-wrap > .hint { max-width: calc(min(720px, 100vh - 300px) * 9 / 16 + 40px); }
+
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.theme-grid button { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  padding: 10px; border-radius: 12px; background: #0f1317; border: 1.5px solid var(--line-2); }
+.theme-grid button:hover { border-color: #3a4452; }
+.theme-grid button.active { border-color: var(--accent); background: rgba(163, 230, 53, .07); }
+.theme-grid .th-sw { grid-row: span 2; width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(255,255,255,.15); }
+.theme-grid b { font-size: 13px; }
+.theme-grid small { font-size: 11px; color: var(--muted); }
+
+.feature-controls { columns: auto; display: block; }
+.fc-inner { columns: 2 330px; column-gap: 16px; }
+.fc-inner > .panel, .fc-inner .panel { break-inside: avoid; margin-bottom: 16px; display: block; width: 100%; }
+.fc-inner > .col { display: contents; }
+.fc-inner > details.adv { column-span: all; }
+.view.scene-view .feature-controls { overflow-x: hidden; }
+
+/* khung xem trước đúng tỉ lệ 9:16, nền đen (không lộ nền ca rô hai bên) */
+.view.scene-view .feature-frame { height: min(720px, calc(100vh - 300px)); width: calc(min(720px, 100vh - 300px) * 9 / 16); aspect-ratio: auto; background: #000; }
+.btn.lights-btn.on { background: rgba(250, 204, 21, .14); border-color: rgba(250, 204, 21, .5); color: #fde68a; }

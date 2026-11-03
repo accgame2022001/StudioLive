@@ -176,6 +176,24 @@ ipcMain.handle('overlay:pause', (_e, p) => {
   return paused;
 });
 
+// Lệnh điều khiển cảnh Rạp Phim: chiếu / dừng / chuyển phim, vỗ tay, mưa bắp, đọc ngay…
+ipcMain.handle('rap:command', (_e, c) => {
+  const actions = ['play', 'pause', 'next', 'prev', 'index', 'speak', 'clap', 'rain', 'share', 'reset', 'testLikes'];
+  if (!c || !actions.includes(c.action)) return false;
+  if (c.action === 'index') settings.update({ overlay: { rapIndex: Number(c.n) || 0 } });
+  overlay.broadcast('rap', { action: c.action, text: typeof c.text === 'string' ? c.text.slice(0, 400) : undefined, n: Number(c.n) || 0 });
+  return true;
+});
+
+ipcMain.handle('dialog:pickVideos', async () => {
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Chọn phim để chiếu',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Video', extensions: ['mp4', 'webm', 'mov', 'm4v'] }]
+  });
+  return r.canceled ? [] : r.filePaths;
+});
+
 // Lệnh điều khiển cảnh chùa: đọc ngay, thỉnh chuông, gõ mõ, nhắc chia sẻ, mưa hoa sen, đặt lại điểm
 ipcMain.handle('chua:command', (_e, c) => {
   const actions = ['speak', 'bell', 'mo', 'share', 'rain', 'reset', 'testLikes'];
@@ -247,6 +265,10 @@ function demoEvent(type) {
     case 'chat': return { type: 'chat', user, text: rand(DEMO_CHATS), ts };
     case 'scare': return { type: 'chat', user, text: 'hù', ts };
     case 'adidaphat': return { type: 'chat', user, text: 'adidaphat', ts };
+    case 'clap': return { type: 'chat', user, text: 'vỗ tay', ts };
+    case 'haha': return { type: 'chat', user, text: 'haha', ts };
+    case 'wow': return { type: 'chat', user, text: 'wow', ts };
+    case 'popcorn': return { type: 'chat', user, text: 'bắp', ts };
     case 'wish': return { type: 'chat', user, text: rand(['Cầu cho con thi đỗ đại học', 'Cầu sức khỏe cho mẹ', 'Mong sớm gặp người thương', 'Cầu bình an cho gia đình']), ts };
     case 'hide': return { type: 'chat', user, text: 'trốn', ts };
     case 'seek': return { type: 'chat', user, text: 'tìm', ts };
@@ -314,6 +336,15 @@ if (!gotLock) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
+  });
+
+  // Tiến trình đồ hoạ (GPU) sập -> khung xem / màn hình phát dễ bị đen: tự tải lại
+  app.on('child-process-gone', (_e, d) => {
+    if (d.type !== 'GPU') return;
+    setTimeout(() => {
+      send('preview:reload');
+      if (outWin && !outWin.isDestroyed()) outWin.webContents.reload();
+    }, 800);
   });
 
   app.on('window-all-closed', () => {

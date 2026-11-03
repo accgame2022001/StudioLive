@@ -2,15 +2,15 @@
   "name": "studio-live",
   "productName": "StudioLive",
   "version": "1.0.0",
-  "description": "StudioLive — cảnh tương tác cho TikTok LIVE: Live Ma Online & Đi Chùa Online",
+  "description": "StudioLive — cảnh tương tác cho TikTok LIVE: Live Ma Online, Đi Chùa Online & Rạp Phim Online",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win"
   },
-  "author": "StudioLive",
-  "license": "UNLICENSED",
+  "author": "Tanthuan031 (https://github.com/tanthuan031)",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.21.2",
     "msedge-tts": "^2.1.0",
@@ -24,7 +24,7 @@
   "build": {
     "appId": "vn.studiolive.app",
     "productName": "StudioLive",
-    "copyright": "© 2026 StudioLive",
+    "copyright": "© 2026 Tanthuan031",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -91,7 +91,20 @@
       {
         "from": "docs/HUONG-DAN-CAI-DAT.md",
         "to": "HUONG-DAN-CAI-DAT.md"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "DISCLAIMER.md",
+        "to": "DISCLAIMER.md"
       }
     ]
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tanthuan031/StudioLive.git"
+  },
+  "homepage": "https://github.com/tanthuan031/StudioLive"
 }

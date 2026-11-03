@@ -17,7 +17,19 @@ const DEFAULTS = {
     showLikeCounter: true,
     showViewerCounter: true,
     showTopGifter: true,
-    mode: 'game',               // game (Nhà Ma) | cards (thẻ bình luận) | chua (Đi Chùa)
+    mode: 'game',               // game (Nhà Ma) | cards (thẻ bình luận) | chua (Đi Chùa) | rap (Rạp Phim)
+    rapName: '',                // tên rạp (tiêu đề + giọng đọc)
+    rapVoice: true,
+    rapGreet: true,
+    rapRate: 1,
+    rapVolume: 0.8,             // âm lượng phim
+    rapLikeGoal: 500,           // số tim để mưa bắp rang
+    rapVideos: [],              // danh sách đường dẫn file phim trên máy
+    rapIndex: 0,                // phim đang chiếu
+    rapLoop: true,              // hết danh sách thì chiếu lại từ đầu
+    rapTheme: 'classic',        // classic | gold | imax | home
+    rapLightsOff: false,        // tắt đèn phòng chiếu
+    rapIdleMin: 0,              // im lặng quá số phút này thì tự ra về (0 = không)
     chuaName: '',               // tên kênh: tiêu đề + cách giọng đọc tự xưng
     chuaVoice: true,            // giọng đọc (chào, cảm ơn quà, chúc)
     chuaGreet: true,            // chào người mới vào
@@ -93,9 +105,19 @@ class Settings {
     o.ambientVolume = Math.min(1, Math.max(0, o.ambientVolume));
     o.liveBoost = Math.min(40, Math.max(0, Math.round(o.liveBoost)));
     if (!['drone', 'wind', 'rain', 'church', 'heartbeat', 'musicbox', 'whispers', 'forest'].includes(o.ambientPreset)) o.ambientPreset = 'drone';
-    if (!['game', 'cards', 'chua'].includes(o.mode)) o.mode = 'game';
+    if (!['game', 'cards', 'chua', 'rap'].includes(o.mode)) o.mode = 'game';
+    o.rapName = String(o.rapName).replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 40);
+    o.rapRate = Math.min(1.3, Math.max(0.6, o.rapRate));
+    if (!['classic', 'gold', 'imax', 'home'].includes(o.rapTheme)) o.rapTheme = 'classic';
+    o.rapIdleMin = Math.min(120, Math.max(0, Math.round(o.rapIdleMin)));
+    o.rapVolume = Math.min(1, Math.max(0, o.rapVolume));
+    o.rapLikeGoal = Math.min(100000, Math.max(10, Math.round(o.rapLikeGoal)));
+    o.rapVideos = (Array.isArray(o.rapVideos) ? o.rapVideos : [])
+      .filter((x) => typeof x === 'string' && x && (!/^[a-z]+:/i.test(x) || /^https?:\/\//i.test(x) || /^[a-z]:[\\/]/i.test(x)))
+      .map((x) => x.trim().slice(0, 2000)).slice(0, 100);
+    o.rapIndex = Math.max(0, Math.min(Math.max(0, o.rapVideos.length - 1), Math.round(o.rapIndex) || 0));
     if (!['game', 'cards'].includes(this.data.maStyle)) this.data.maStyle = 'game';
-    if (o.mode !== 'chua') this.data.maStyle = o.mode;
+    if (o.mode === 'game' || o.mode === 'cards') this.data.maStyle = o.mode;
     if (!/^#[0-9a-f]{6}$/i.test(o.accent)) o.accent = DEFAULTS.overlay.accent;
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true });

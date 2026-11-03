@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('studio', {
   reloadOverlay: () => ipcRenderer.invoke('overlay:reload'),
   setPaused: (p) => ipcRenderer.invoke('overlay:pause', p),
   chua: (action, extra) => ipcRenderer.invoke('chua:command', { action, ...extra }),
+  rap: (action, extra) => ipcRenderer.invoke('rap:command', { action, ...extra }),
+  pickVideos: () => ipcRenderer.invoke('dialog:pickVideos'),
   onPause: on('pause:state'),
   restartServer: () => ipcRenderer.invoke('server:restart'),
   pickSound: (kind) => ipcRenderer.invoke('dialog:pickSound', kind),
@@ -28,5 +30,6 @@ contextBridge.exposeInMainWorld('studio', {
   onStatus: on('live:status'),
   onStats: on('live:stats'),
   onEvent: on('live:event'),
-  onServer: on('server:state')
+  onServer: on('server:state'),
+  onPreviewReload: on('preview:reload')
 });

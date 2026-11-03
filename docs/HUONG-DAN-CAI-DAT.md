@@ -4,6 +4,7 @@ StudioLive tạo cảnh tương tác cho TikTok LIVE, chạy hoàn toàn trên m
 
 - **👻 Live Ma Online** — người xem hoá ma, gõ “hù / trốn / tìm…” để chơi với nhau.
 - **🪷 Đi Chùa Online** — chánh điện, người xem gõ “adidaphat” để lên thắp hương, quà làm sen vàng nở, có giọng đọc cảm ơn.
+- **🎬 Rạp Phim Online** — phòng chiếu phim: người xem vào được chào mừng, đi vào ghế ngồi xem phim cùng nhau; gõ “vỗ tay / haha / wow / bắp” để phản ứng; quà làm ghế thành ghế VIP vàng; đủ tim thì mưa bắp rang. Phim chiếu: dán **link YouTube** hoặc link trực tiếp tới file video (.mp4, .webm), hoặc chọn file trên máy (tab Rạp Phim Online → **+ Thêm phim**). Một số video YouTube bị chủ kênh tắt chế độ phát nhúng sẽ không chạy — app tự chuyển sang phim kế tiếp. Có 4 kiểu phòng: Cổ điển, VIP Gold, IMAX, Gia đình.
 
 ## 1. Cần có
 
@@ -46,7 +47,7 @@ bấm **Thông tin thêm (More info) → Vẫn chạy (Run anyway)**.
 
 Trong app, mục **Bảng điều khiển → Bắt đầu nhanh** có đánh dấu ✓ từng bước:
 
-1. **Chọn cảnh**: bấm tab **👻 Live Ma Online** hoặc **🪷 Đi Chùa Online** ở menu trái. Mở tab nào thì cảnh đó chạy trên live.
+1. **Chọn cảnh**: bấm tab **👻 Live Ma Online**, **🪷 Đi Chùa Online** hoặc **🎬 Rạp Phim Online** ở menu trái. Mở tab nào thì cảnh đó chạy trên live.
 2. **Thêm vào TikTok LIVE Studio**: chọn khung **dọc**, thêm nguồn **Link**, dán `http://lvh.me:3000`, đặt kích thước **1080 × 1920**, kéo phủ kín khung.
    (LIVE Studio không nhận chữ “localhost”; `lvh.me` luôn trỏ về chính máy bạn.)
 3. **Bấm Go LIVE** trên TikTok LIVE Studio.
@@ -96,4 +97,5 @@ TikTok nén video rất mạnh: cảnh tối và nhiều mảng chuyển màu d�
 - StudioLive đọc sự kiện công khai của phòng live qua trang web TikTok. Không cần và không lưu mật khẩu TikTok (trừ khi bạn tự đăng nhập ở mục Đăng nhập TikTok — phiên đăng nhập chỉ lưu trên máy bạn).
 - Giọng đọc của chế độ Đi Chùa dùng dịch vụ đọc trực tuyến của Microsoft Edge (dự phòng Google Translate), nên câu cần đọc được gửi tới dịch vụ đó.
 - TikTok có thể thay đổi hệ thống bất cứ lúc nào khiến việc đọc sự kiện ngừng hoạt động cho tới khi có bản cập nhật.
+- **Rạp Phim**: chỉ chiếu phim bạn có quyền phát (phim tự quay, phim đã hết bản quyền, phim được phép chiếu). Chiếu phim có bản quyền lên TikTok rất dễ bị tắt live hoặc khoá tài khoản.
 - Bạn tự chịu trách nhiệm tuân thủ điều khoản của TikTok và pháp luật nơi bạn sinh sống khi live và nhận quà.

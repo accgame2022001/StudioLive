@@ -14,7 +14,7 @@ StudioLive sử dụng các thư viện và tài nguyên sau. Mọi thư viện 
 | protobufjs | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz |
 | axios | MIT | Copyright (c) 2014-present Matt Zabriskie & Collaborators |
 
-Lưu ý: các phiên bản `tiktok-live-connector` **mới hơn 2.0.0** và `tiktok-live-proto` dùng giấy phép **AGPL-3.0**. Không nâng cấp lên các bản đó nếu StudioLive tiếp tục phát hành dạng đóng mã.
+Lưu ý: các phiên bản `tiktok-live-connector` **mới hơn 2.0.0** và `tiktok-live-proto` dùng giấy phép **AGPL-3.0**. Không nâng cấp lên các bản đó để StudioLive giữ được giấy phép MIT.
 
 ## Tài nguyên & mã tham khảo
 

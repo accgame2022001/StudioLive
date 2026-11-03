@@ -286,6 +286,26 @@
       }
     },
     templeBell() { S.gong(); },
+    // ---- Rạp phim ----
+    applause(level = 1) { // tiếng vỗ tay: nhiều cú vỗ ngẫu nhiên, càng đông càng dày
+      const t = ac.currentTime, d = out(0.45);
+      const dur = 1.6 + level * 0.8;
+      const n = Math.floor(18 + level * 26);
+      for (let i = 0; i < n; i++) {
+        const s = t + Math.random() * dur * (0.6 + Math.random() * 0.4);
+        noise(s, 0.035, rnd(0.12, 0.3), d, { f: rnd(1200, 3200), q: 1.4, a: 0.002, rel: 0.035 });
+      }
+    },
+    crowdLaugh(level = 1) { // cả rạp cười "ha ha"
+      const t = ac.currentTime, d = out(0.6);
+      const voices = 2 + level * 2;
+      for (let v = 0; v < voices; v++) {
+        const f = rnd(170, 420), start = rnd(0, 0.4);
+        for (let i = 0; i < 4; i++) voice(t + start + i * rnd(0.17, 0.22), 0.14, f * (1 - i * 0.03), f * 0.9, 'a', 0.16 / Math.sqrt(voices) * 2, d, { a: 0.01, hold: 0.05, rel: 0.08, breath: 0.7 });
+      }
+    },
+    wow() { const t = ac.currentTime, d = out(0.5); voice(t, 0.7, 200, 320, 'o', 0.3, d, { a: 0.05, breath: 0.4 }); voice(t + 0.05, 0.6, 290, 420, 'o', 0.16, d, { a: 0.05 }); },
+    crunch() { const t = ac.currentTime, d = out(0.2); for (let i = 0; i < 6; i++) noise(t + i * rnd(0.06, 0.11), 0.05, rnd(0.15, 0.3), d, { type: 'highpass', f: 2200, q: 0.7, a: 0.002, rel: 0.05 }); },
     jumpscare(face = '') { // tiếng hét lớn + đập + méo, khác nhau theo mặt ma
       const t = ac.currentTime, d = out(0.35);
       const shaper = ac.createWaveShaper();
@@ -572,7 +592,7 @@
   function syncAmbient() {
     const c = getCfg();
     let key;
-    if (c.mode === 'chua') key = 'none'; // chế độ chùa dùng nhạc mp3 riêng (temple.js)
+    if (c.mode === 'chua' || c.mode === 'rap') key = 'none'; // chùa: nhạc mp3 riêng; rạp: tiếng của phim
     else key = !c.sound || muted || !c.ambient || c.customAmbient ? 'none' : (AMBIENTS[c.ambientPreset] ? c.ambientPreset : 'drone');
     if ((amb?.key || 'none') === key) return;
     stopAmbient();
@@ -593,7 +613,7 @@
 
   // ---------- API ----------
   // Giới hạn tần suất mỗi tiếng để không ồn khi người xem spam lệnh
-  const MIN_GAP = { scream: 350, boo: 500, whoosh: 300, footsteps: 600, pop: 150, creak: 800, jumpscare: 1500, thunder: 3000 };
+  const MIN_GAP = { applause: 700, crowdLaugh: 900, wow: 500, crunch: 300, scream: 350, boo: 500, whoosh: 300, footsteps: 600, pop: 150, creak: 800, jumpscare: 1500, thunder: 3000 };
 
   function play(name, ...args) {
     const c = getCfg();
